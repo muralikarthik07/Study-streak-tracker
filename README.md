@@ -1,9 +1,9 @@
 # 🔥 StreakTracker
 
-A full-stack **Daily Learning Streak Tracker** built with Next.js 15, TypeScript, and Tailwind CSS. Features user authentication, streak logic, and study history — deployed on Vercel.
+A full-stack **Daily Learning Streak Tracker** built with Next.js , TypeScript, and Tailwind CSS. Features user authentication, streak logic, and study history — deployed on Vercel.
 
 ## 🚀 Live Demo
-> `https://your-project.vercel.app`
+> `https://study-streak-tracker-22ij.vercel.app/`
 
 ---
 
@@ -41,7 +41,7 @@ lib/
 
 ## ⚙️ Local Setup
 ```bash
-git clone https://github.com/YOUR_USERNAME/streak-tracker.git
+git clone https://github.com/muralikarthik07/Study-streak-tracker
 cd streak-tracker
 npm install
 npm run dev
