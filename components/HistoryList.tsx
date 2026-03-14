@@ -1,58 +1,50 @@
-// components/HistoryList.tsx
 import { formatDate, getTodayString } from "@/lib/streakLogic";
 
-interface HistoryListProps {
-  dates: string[];
-}
-
-export default function HistoryList({ dates }: HistoryListProps) {
+export default function HistoryList({ dates }: { dates: string[] }) {
   const today = getTodayString();
 
-  if (dates.length === 0) {
+  if (!dates.length) {
     return (
-      <div className="text-center py-12">
-        <span className="text-5xl block mb-3">📭</span>
-        <p className="text-gray-400 font-medium">No study sessions yet.</p>
-        <p className="text-gray-400 text-sm">
-          Go to the dashboard and start your streak!
-        </p>
+      <div className="text-center py-14">
+        <span className="text-5xl block mb-4">📭</span>
+        <p className="font-medium mb-1" style={{ color: "var(--text)" }}>No study sessions yet</p>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>Head to the dashboard and log your first one!</p>
       </div>
     );
   }
 
   return (
     <ul className="space-y-2">
-      {dates.map((date, idx) => {
+      {dates.map((date, i) => {
         const isToday = date === today;
-        const isFirst = idx === 0;
+        const isLatest = i === 0;
         return (
           <li
             key={date}
-            className={`flex items-center justify-between rounded-2xl px-4 py-3 border transition-all
-              ${
-                isToday
-                  ? "bg-indigo-50 border-indigo-200"
-                  : "bg-white border-gray-100 hover:border-gray-200"
-              }`}
+            className="flex items-center justify-between rounded-xl px-4 py-3.5 border transition-all card-hover animate-fade-up"
+            style={{
+              background: isToday ? "rgba(245,158,11,0.06)" : "var(--surface2)",
+              borderColor: isToday ? "rgba(245,158,11,0.25)" : "var(--border)",
+              animationDelay: `${Math.min(i * 40, 400)}ms`,
+              animationFillMode: "both",
+            }}
           >
             <div className="flex items-center gap-3">
-              <span className="text-xl">{isToday ? "⭐" : "✅"}</span>
-              <span
-                className={`font-medium ${
-                  isToday ? "text-indigo-700" : "text-gray-700"
-                }`}
-              >
+              <span className="text-lg">{isToday ? "⭐" : "✅"}</span>
+              <span className="font-medium text-sm" style={{ color: "var(--text)" }}>
                 {formatDate(date)}
               </span>
             </div>
             <div className="flex gap-2">
               {isToday && (
-                <span className="text-xs font-semibold bg-indigo-100 text-indigo-600 px-2 py-1 rounded-full">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ background: "rgba(245,158,11,0.15)", color: "var(--amber)" }}>
                   Today
                 </span>
               )}
-              {isFirst && !isToday && (
-                <span className="text-xs font-semibold bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
+              {isLatest && !isToday && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ background: "rgba(255,255,255,0.06)", color: "var(--muted)" }}>
                   Latest
                 </span>
               )}

@@ -1,5 +1,4 @@
 // lib/streakLogic.ts
-// Core business logic for computing study streaks
 
 export interface StreakData {
   currentStreak: number;
@@ -7,86 +6,57 @@ export interface StreakData {
   lastStudied: string | null;
 }
 
-/**
- * Get today's date as a YYYY-MM-DD string (local time)
- */
-export function getTodayString(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+export interface UserAccount {
+  username: string;
+  email: string;
+  passwordHash: string;
+  createdAt: string;
 }
 
-/**
- * Format a YYYY-MM-DD date string to a human-readable format
- * e.g. "2026-03-14" -> "14 March 2026"
- */
+export interface UserData {
+  studyDates: string[];
+}
+
+// ── Date helpers ──────────────────────────────────────────────
+
+export function getTodayString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 export function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString("en-GB", {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 }
 
-/**
- * Compute the number of calendar days between two YYYY-MM-DD strings.
- * Returns positive if dateA is after dateB.
- */
-function daysBetween(dateA: string, dateB: string): number {
-  const a = new Date(dateA + "T00:00:00");
-  const b = new Date(dateB + "T00:00:00");
-  return Math.round((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
+function daysBetween(a: string, b: string): number {
+  return Math.round(
+    (new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) /
+      86400000
+  );
 }
 
-/**
- * Given an array of study date strings (YYYY-MM-DD), compute streak stats.
- *
- * Rules:
- *  - Streak counts consecutive days ending on today or yesterday.
- *  - If the most recent study date is more than 1 day ago, streak = 0
- *    (it was broken and the user hasn't started a new one yet).
- *  - If user studied today OR yesterday, count consecutive backwards.
- */
-export function computeStreak(dates: string[]): StreakData {
-  if (dates.length === 0) {
-    return { currentStreak: 0, totalDays: 0, lastStudied: null };
-  }
+// ── Streak logic ──────────────────────────────────────────────
 
-  // Deduplicate and sort descending
+export function computeStreak(dates: string[]): StreakData {
+  if (!dates.length) return { currentStreak: 0, totalDays: 0, lastStudied: null };
   const unique = [...new Set(dates)].sort((a, b) => (a > b ? -1 : 1));
   const totalDays = unique.length;
   const lastStudied = unique[0];
-  const today = getTodayString();
-
-  const diffFromToday = daysBetween(today, lastStudied);
-
-  // Streak is broken if last study was 2+ days ago
-  if (diffFromToday > 1) {
+  if (daysBetween(getTodayString(), lastStudied) > 1)
     return { currentStreak: 0, totalDays, lastStudied };
-  }
-
-  // Count consecutive days working backwards from the most recent
   let streak = 1;
   for (let i = 1; i < unique.length; i++) {
-    const diff = daysBetween(unique[i - 1], unique[i]);
-    if (diff === 1) {
-      streak++;
-    } else {
-      break;
-    }
+    if (daysBetween(unique[i - 1], unique[i]) === 1) streak++;
+    else break;
   }
-
   return { currentStreak: streak, totalDays, lastStudied };
 }
 
-/**
- * Validate and add today's date to the study dates array.
- * Returns { success, message, updatedDates }
- */
 export function markStudied(dates: string[]): {
   success: boolean;
   message: string;
@@ -94,26 +64,109 @@ export function markStudied(dates: string[]): {
 } {
   const today = getTodayString();
   const unique = [...new Set(dates)];
-
-  if (unique.includes(today)) {
-    return {
-      success: false,
-      message: "You have already marked today.",
-      updatedDates: unique,
-    };
-  }
-
-  const updatedDates = [...unique, today];
+  if (unique.includes(today))
+    return { success: false, message: "You have already marked today.", updatedDates: unique };
   return {
     success: true,
     message: "Great job! Study logged for today. 🎉",
-    updatedDates,
+    updatedDates: [...unique, today],
   };
 }
 
-/**
- * Return study dates sorted newest first.
- */
 export function getSortedHistory(dates: string[]): string[] {
   return [...new Set(dates)].sort((a, b) => (a > b ? -1 : 1));
+}
+
+// ── Auth helpers (localStorage) ───────────────────────────────
+
+const USERS_KEY = "st_users";
+const SESSION_KEY = "st_session";
+
+function hashPassword(password: string): string {
+  // Simple deterministic hash for demo purposes
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    hash = (hash << 5) - hash + password.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36) + password.length.toString(36);
+}
+
+function getUsers(): Record<string, UserAccount> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveUsers(users: Record<string, UserAccount>) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+export function getUserDataKey(username: string) {
+  return `st_data_${username}`;
+}
+
+export function getUserStudyDates(username: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(getUserDataKey(username));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserStudyDates(username: string, dates: string[]) {
+  localStorage.setItem(getUserDataKey(username), JSON.stringify(dates));
+}
+
+export function signUp(
+  username: string,
+  email: string,
+  password: string
+): { success: boolean; message: string } {
+  const users = getUsers();
+  const key = username.toLowerCase();
+  if (users[key]) return { success: false, message: "Username already taken." };
+  const emailTaken = Object.values(users).some((u) => u.email === email.toLowerCase());
+  if (emailTaken) return { success: false, message: "Email already registered." };
+  users[key] = {
+    username,
+    email: email.toLowerCase(),
+    passwordHash: hashPassword(password),
+    createdAt: new Date().toISOString(),
+  };
+  saveUsers(users);
+  return { success: true, message: "Account created!" };
+}
+
+export function logIn(
+  username: string,
+  password: string
+): { success: boolean; message: string } {
+  const users = getUsers();
+  const key = username.toLowerCase();
+  const user = users[key];
+  if (!user) return { success: false, message: "Username not found." };
+  if (user.passwordHash !== hashPassword(password))
+    return { success: false, message: "Incorrect password." };
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ username: user.username, email: user.email }));
+  return { success: true, message: "Welcome back!" };
+}
+
+export function logOut() {
+  if (typeof window !== "undefined") localStorage.removeItem(SESSION_KEY);
+}
+
+export function getSession(): { username: string; email: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
